@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 10%;
+    --card: 40 20% 97%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 38 50% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 40 20% 97%;
+    --secondary-foreground: 0 0% 10%;
+    --muted: 40 20% 97%;
+    --muted-foreground: 30 8% 50%;
+    --accent: 40 20% 97%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    /* Neo-Bauhaus Border */
+    --border: #E5E2DC;
+    --input: #E5E2DC;
+    --ring: #C4A46D;
+    --radius: 0.5rem;
+    
+    /* Neo-Bauhaus custom */
+    --sand: #F5F2ED;
+    --sand-light: #FAFAF7;
+    --sand-dark: #E8E4DC;
+    --brass: #C4A46D;
+    --brass-light: rgba(196, 164, 109, 0.1);
+    --brass-medium: rgba(196, 164, 109, 0.2);
+    --warm-black: #2D2926;
+    --charcoal: #1A1814;
+    --text-muted: #9C9690;
+    --font-heading: "Playfair Display", serif;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-text font-body;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* Custom scrollbar for the Linear Track */
+.linear-track::-webkit-scrollbar {
+  height: 8px;
+}
+
+.linear-track::-webkit-scrollbar-track {
+  background: #F7F5F0;
+  border-radius: 4px;
+}
+
+.linear-track::-webkit-scrollbar-thumb {
+  background: #E5E0D8;
+  border-radius: 4px;
+}
+
+.linear-track::-webkit-scrollbar-thumb:hover {
+  background: #C5A059;
+}
+
+/* Animation for agent status */
+.agent-pulse {
+  animation: agent-pulse 2s ease-in-out infinite;
+}
+
+@keyframes agent-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+/* Glassmorphism for chat */
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Tool Card - Generative UI */
+.tool-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--brass);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.tool-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tool-card-body {
+  padding: 1rem;
+}
+
+.tool-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--secondary);
+}
+
+/* Draggable marker */
+.draggable-marker {
+  position: absolute;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  cursor: move;
+  transition: transform 0.1s;
+  background: var(--brass);
+  border: 2px solid white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transform: translate(-50%, -50%);
+  z-index: 10;
+}
+
+.draggable-marker:hover {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+
+.draggable-marker:active {
+  transform: translate(-50%, -50%) scale(1.15);
+}
+
+/* Animation */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
