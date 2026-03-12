@@ -2,9 +2,10 @@
 
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginModalProps {
     isOpen: boolean;
@@ -17,6 +18,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const { signInWithGoogle } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,27 +63,7 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setError(null);
         setIsLoading(true);
         try {
-            if (!auth || !db) {
-                setError('Authentication service is currently unavailable');
-                return;
-            }
-            const provider = new GoogleAuthProvider();
-            const userCredential = await signInWithPopup(auth, provider);
-            const user = userCredential.user;
-
-            const userRef = doc(db, 'users', user.uid);
-            const userSnap = await getDoc(userRef);
-
-            if (!userSnap.exists()) {
-                await setDoc(userRef, {
-                    email: user.email,
-                    displayName: user.displayName,
-                    photoURL: user.photoURL,
-                    generationCount: 0,
-                    credits: 100,
-                    createdAt: new Date().toISOString()
-                });
-            }
+            await signInWithGoogle();
             onClose();
         } catch (err: any) {
             console.error('Google Auth error:', err);
