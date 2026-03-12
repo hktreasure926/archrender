@@ -16,7 +16,7 @@ export const useUserMemory = () => {
     const [isLoadingProfile, setIsLoadingProfile] = useState(true);
 
     useEffect(() => {
-        if (!user) {
+        if (!user || !db) {
             setProfile(null);
             setIsLoadingProfile(false);
             return;
@@ -44,6 +44,7 @@ export const useUserMemory = () => {
 
     const logGeneration = async (prompt: string, settings: any, resultUrl: string) => {
         if (!user) throw new Error('Must be logged in to log generation.');
+        if (!db) throw new Error('Database service is unavailable.');
 
         try {
             // 1. Log the generation event to the subcollection

@@ -24,6 +24,11 @@ export default function LoginModal({ isOpen, onClose }: LoginModalProps) {
         setIsLoading(true);
 
         try {
+            if (!auth || !db) {
+                setError('Authentication service is currently unavailable');
+                return;
+            }
+
             if (isLogin) {
                 await signInWithEmailAndPassword(auth, email, password);
             } else {
