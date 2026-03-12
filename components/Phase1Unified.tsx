@@ -937,7 +937,7 @@ export default function Phase1Unified() {
                 <div className="space-y-2">
                   <button
                     onClick={generateRender}
-                    disabled={(!canGenerate && user) || isGenerating || (profile && profile.generationCount >= 30)}
+                    disabled={(!canGenerate && !!user) || isGenerating || !!(profile && profile.generationCount >= 30)}
                     className="w-full px-4 py-3 bg-primary text-white rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-200 ease-out flex items-center justify-center gap-2"
                   >
                     {isGenerating ? (
