@@ -8,6 +8,15 @@ const nextConfig = {
   images: {
     domains: ['localhost', 'n8n.studionomad.cloud'],
   },
+  async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/phase1',
+        permanent: false,
+      },
+    ];
+  },
   env: {
     NEXT_PUBLIC_N8N_WEBHOOK_URL: process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.studionomad.cloud/webhook/render',
   },
