@@ -341,12 +341,28 @@ export default function Phase1Unified() {
         styleImage: (activeTool === 'styleSwap' && styleReferenceImage) ? styleReferenceImage : undefined,
         engine: aiEngine === 'nano-banana-2' ? 'gemini-3.1-flash-image-preview' : 'gemini-3-pro-image-preview'
       }
-      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.dashinglads.cloud/webhook/studio-nomad-render-v2';
-      console.log('Initiating render fetch to:', webhookUrl);
+      // Priority: 1. NEXT_PUBLIC_N8N_WEBHOOK_URL, 2. VITE_N8N_WEBHOOK_URL (for compatibility), 3. Hardcoded Fallback
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 
+                         process.env.VITE_N8N_WEBHOOK_URL || 
+                         'https://n8n.dashinglads.cloud/webhook/studio-nomad-render-v2';
+      console.log('[DEBUG] Webhook URL source:', process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL ? 'ENVVar' : 'Fallback');
+      console.log('[DEBUG] Initiating render fetch to:', webhookUrl);
+      console.log('[DEBUG] Payload keys:', Object.keys(n8nPayload));
+
+      // Test connectivity before main call (Development only)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[DEBUG] Performing reachability test...');
+        fetch(webhookUrl, { method: 'HEAD' })
+          .then(res => console.log('[DEBUG] Reachability check status:', res.status))
+          .catch(err => console.error('[DEBUG] Reachability check failed:', err.message));
+      }
 
       const response = await fetch(webhookUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
         body: JSON.stringify(n8nPayload),
       });
 
@@ -396,6 +412,29 @@ export default function Phase1Unified() {
       >
         <Grid3x3 className="w-5 h-5 text-text-secondary" />
       </button>
+
+      {/* Debug Webhook Test - Only visible in development or via specific state */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2">
+        <button
+          onClick={async () => {
+            const testUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.dashinglads.cloud/webhook/studio-nomad-render-v2';
+            console.log('[DEBUG] Manual Webhook Test to:', testUrl);
+            try {
+              const res = await fetch(testUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ test: true, timestamp: new Date().toISOString() })
+              });
+              alert(`Webhook Result: ${res.status} ${res.ok ? 'OK' : 'FAIL'}`);
+            } catch (e) {
+              alert(`Webhook Error: ${e instanceof Error ? e.message : String(e)}`);
+            }
+          }}
+          className="bg-black/50 text-white text-[10px] px-2 py-1 rounded hover:bg-black/80 transition-opacity opacity-20 hover:opacity-100"
+        >
+          Test Webhook
+        </button>
+      </div>
 
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex items-center justify-between">
