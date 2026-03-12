@@ -341,21 +341,33 @@ export default function Phase1Unified() {
         styleImage: (activeTool === 'styleSwap' && styleReferenceImage) ? styleReferenceImage : undefined,
         engine: aiEngine === 'nano-banana-2' ? 'gemini-3.1-flash-image-preview' : 'gemini-3-pro-image-preview'
       }
-      const response = await fetch(process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.dashinglads.cloud/webhook/studio-nomad-render-v2', {
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL || 'https://n8n.dashinglads.cloud/webhook/studio-nomad-render-v2';
+      console.log('Initiating render fetch to:', webhookUrl);
+
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(n8nPayload),
-      })
-      if (!response.ok) throw new Error(`n8n webhook failed: ${response.statusText}`)
-      const data = await response.json()
-      let imageUrl = null
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => response.statusText);
+        throw new Error(`Render failed (${response.status}): ${errorText || 'Server error'}`);
+      }
+
+      const data = await response.json();
+      let imageUrl = null;
       if (data.candidates && data.candidates[0]?.content?.parts) {
-        const imagePart = data.candidates[0].content.parts.find((part: any) => part.inlineData || part.inline_data)
+        const imagePart = data.candidates[0].content.parts.find((part: any) => part.inlineData || part.inline_data);
         if (imagePart) {
-          const base64Data = imagePart.inlineData?.data || imagePart.inline_data?.data
-          const mimeType = imagePart.inlineData?.mimeType || imagePart.inline_data?.mime_type || 'image/png'
-          if (base64Data) imageUrl = `data:${mimeType};base64,${base64Data}`
+          const base64Data = imagePart.inlineData?.data || imagePart.inline_data?.data;
+          const mimeType = imagePart.inlineData?.mimeType || imagePart.inline_data?.mime_type || 'image/png';
+          if (base64Data) imageUrl = `data:${mimeType};base64,${base64Data}`;
         }
+      }
+
+      if (!imageUrl) {
+        throw new Error('Render process completed but no image was returned. Please try again.');
       }
 
       setNodes(prev => prev.map(node => node.id === renderNode.id ? { ...node, imageUrl: imageUrl, status: imageUrl ? 'complete' : 'error' } : node))

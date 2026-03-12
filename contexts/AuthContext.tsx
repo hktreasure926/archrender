@@ -53,19 +53,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
 
-            // Sync user to Firestore
-            const userRef = doc(db, 'users', user.uid);
-            const userSnap = await getDoc(userRef);
+            // Sync user to Firestore - Handle failures gracefully for offline/unconfigured environments
+            try {
+                const userRef = doc(db, 'users', user.uid);
+                const userSnap = await getDoc(userRef);
 
-            if (!userSnap.exists()) {
-                await setDoc(userRef, {
-                    email: user.email,
-                    displayName: user.displayName,
-                    photoURL: user.photoURL,
-                    generationCount: 0,
-                    credits: 100,
-                    createdAt: new Date().toISOString()
-                });
+                if (!userSnap.exists()) {
+                    await setDoc(userRef, {
+                        email: user.email,
+                        displayName: user.displayName,
+                        photoURL: user.photoURL,
+                        generationCount: 0,
+                        credits: 100,
+                        createdAt: new Date().toISOString()
+                    });
+                }
+            } catch (firestoreError) {
+                console.warn('Auth Sync Warning: Could not sync user to Firestore, proceeding with Auth session only.', firestoreError);
             }
         } catch (error) {
             console.error('Error signing in with Google:', error);
