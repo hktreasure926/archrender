@@ -9,6 +9,14 @@ const nextConfig = {
     domains: ['localhost', 'n8n.studionomad.cloud'],
   },
   async redirects() {
+    return [
+      {
+        source: '/',
+        destination: '/phase1',
+        permanent: false,
+      },
+    ];
+  },
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.alias = {
