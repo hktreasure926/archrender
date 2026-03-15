@@ -391,18 +391,54 @@ export default function Phase1Unified() {
       }
 
       const data = await response.json();
-      let imageUrl = null;
-      if (data.candidates && data.candidates[0]?.content?.parts) {
-        const imagePart = data.candidates[0].content.parts.find((part: any) => part.inlineData || part.inline_data);
-        if (imagePart) {
-          const base64Data = imagePart.inlineData?.data || imagePart.inline_data?.data;
-          const mimeType = imagePart.inlineData?.mimeType || imagePart.inline_data?.mime_type || 'image/png';
-          if (base64Data) imageUrl = `data:${mimeType};base64,${base64Data}`;
+      let imageUrl: string | null = null
+
+      console.log('[RENDER RESPONSE] type:', Array.isArray(data) ? 'array' : typeof data)
+      console.log('[RENDER RESPONSE] first chunk keys:', Object.keys(Array.isArray(data) ? (data[0] || {}) : (data || {})).join(', '))
+
+      // n8n calls streamGenerateContent which returns an ARRAY of streaming chunks.
+      // Each chunk is a separate object that may contain candidates with inlineData image parts.
+      const chunks: any[] = Array.isArray(data) ? data : [data]
+
+      for (const chunk of chunks) {
+        if (imageUrl) break
+
+        // Primary: standard Gemini candidates format
+        if (chunk?.candidates?.[0]?.content?.parts) {
+          const parts = chunk.candidates[0].content.parts
+          const imagePart = parts.find((p: any) => p.inlineData || p.inline_data)
+          if (imagePart) {
+            const b64 = imagePart.inlineData?.data || imagePart.inline_data?.data
+            const mime = imagePart.inlineData?.mimeType || imagePart.inline_data?.mime_type || 'image/png'
+            if (b64) { imageUrl = `data:${mime};base64,${b64}`; break }
+          }
+        }
+
+        // Fallback: flat convenience fields (in case n8n transforms the response)
+        if (!imageUrl && chunk?.imageUrl) imageUrl = chunk.imageUrl
+        if (!imageUrl && chunk?.image) {
+          imageUrl = chunk.image.startsWith('data:') ? chunk.image : `data:image/png;base64,${chunk.image}`
+        }
+        if (!imageUrl && chunk?.output) {
+          imageUrl = chunk.output.startsWith('data:') ? chunk.output : `data:image/png;base64,${chunk.output}`
+        }
+
+        // Last resort: scan all string values in the chunk for a raw base64 blob
+        if (!imageUrl) {
+          for (const key of Object.keys(chunk || {})) {
+            const val = chunk[key]
+            if (typeof val === 'string' && val.length > 500) {
+              if (val.startsWith('data:image')) { imageUrl = val; break }
+              if (/^[A-Za-z0-9+/=]{200,}$/.test(val)) { imageUrl = `data:image/png;base64,${val}`; break }
+            }
+          }
         }
       }
 
       if (!imageUrl) {
-        throw new Error('Render process completed but no image was returned. Please try again.');
+        const firstChunk = chunks[0] || {}
+        const preview = JSON.stringify(firstChunk).slice(0, 400)
+        throw new Error(`Image not found in render response. Keys: [${Object.keys(firstChunk).join(', ')}]. Preview: ${preview}`)
       }
 
       setNodes(prev => prev.map(node => node.id === renderNode.id ? { ...node, imageUrl: imageUrl, status: imageUrl ? 'complete' : 'error' } : node))
