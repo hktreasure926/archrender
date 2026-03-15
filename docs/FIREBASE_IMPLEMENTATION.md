@@ -64,7 +64,7 @@ users/{userId}
 - **Mock Implementation**: The `useUserMemory` hook currently uses mock data
 - No actual Firebase connection required for Phase 1
 
-### Future (Phase 3)
+### Future (Firebase Implementatio Phase)
 - Add Firebase Authentication
 - Connect Firestore for user data persistence
 - Implement login/registration flow

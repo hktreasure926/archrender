@@ -64,11 +64,12 @@ export default function Phase1Unified() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: isAuthLoading } = useAuth()
   const { profile, logGeneration } = useUserMemory()
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
 
-  const [activeTool, setActiveTool] = useState<'massing' | 'styleSwap' | 'perspective' | null>(null)
+  const [activeTool, setActiveTool] = useState<'massing' | 'styleSwap' | 'perspective' | null>('massing')
+  const [compareMode, setCompareMode] = useState(false)
 
   const [cameraPositions, setCameraPositions] = useState<CameraPosition[]>([])
   const [placementMode, setPlacementMode] = useState<'camera' | 'target'>('camera')
@@ -105,8 +106,16 @@ export default function Phase1Unified() {
   const selectedNode = nodes.find(n => n.id === selectedNodeId)
   const isStyleSwapActive = activeTool === 'styleSwap'
   const isPerspectiveActive = activeTool === 'perspective'
-  const disableStep2 = activeTool !== 'massing'
-  const canGenerate = selectedNode?.type === 'massing' && activeTool !== null
+  const disableStep2 = false // Fix 2: Enable for all tools
+  const canGenerate = nodes.some(n => n.type === 'massing') && activeTool !== null
+
+  const clearAll = () => {
+    setNodes([])
+    setSelectedNodeId(null)
+    setCameraPositions([])
+    setCompareMode(false)
+    setActiveTool('massing')
+  }
 
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -270,6 +279,10 @@ export default function Phase1Unified() {
       parts.push('Transform into photorealistic render')
     }
     if (activeTool === 'perspective' && cameraPositions.length >= 2) parts.push('with custom camera angle')
+    
+    // Fix 2: Add custom prompts
+    if (customStylePrompt) parts.push(customStylePrompt)
+    
     if (activeTool === 'massing') {
       if (step2Enabled.context) {
         parts.push(`${contextSettings.timeOfDay} lighting`)
@@ -296,13 +309,19 @@ export default function Phase1Unified() {
       return
     }
 
-    const selectedNode = nodes.find(n => n.id === selectedNodeId)
-    if (!selectedNode || !selectedNode.file) {
+    const massingNode = nodes.find(n => n.type === 'massing')
+    if (!massingNode || !massingNode.file) {
       setError('Please upload a massing first')
       return
     }
+
     setIsGenerating(true)
     setError(null)
+    setCompareMode(false) // Exit compare mode when generating new
+    
+    // Clear old renders to avoid confusion
+    setNodes(prev => prev.filter(n => n.type === 'massing'))
+
     const renderNode: RenderNode = {
       id: `render-${Date.now()}`,
       type: 'render',
@@ -314,7 +333,7 @@ export default function Phase1Unified() {
     setNodes(prev => [...prev, renderNode])
     setSelectedNodeId(renderNode.id)
     try {
-      const base64Image = await fileToBase64(selectedNode.file)
+      const base64Image = await fileToBase64(massingNode.file)
       let camera = {}
       if (cameraPositions.length >= 2) {
         const cam = cameraPositions.find(p => p.type === 'camera')
@@ -444,17 +463,21 @@ export default function Phase1Unified() {
           </div>
 
           <div className="flex items-center gap-4">
-            {user ? (
+            {isAuthLoading ? (
+              <div className="flex items-center gap-3 bg-white border border-border rounded-full py-2 px-4 shadow-sm animate-pulse">
+                <div className="w-16 h-3 bg-surface rounded"></div>
+              </div>
+            ) : user ? (
               <div className="flex items-center gap-3 bg-white border border-border rounded-full py-1.5 pl-4 pr-1.5 shadow-sm">
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] font-medium text-text-secondary uppercase tracking-wider">{user.email?.split('@')[0]}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-text">
-                      {profile ? `${Math.max(0, 30 - profile.generationCount)} left` : 'Loading...'}
+                      {profile ? `${Math.max(0, 30 - profile.generationCount)} left` : '---'}
                     </span>
                     <span className="text-[10px] text-[#C4A46D] font-medium flex items-center">
                       <span className="material-symbols-outlined text-[14px] mr-0.5">diamond</span>
-                      {profile?.credits || 100}
+                      {profile?.credits || 0}
                     </span>
                   </div>
                 </div>
@@ -564,7 +587,18 @@ export default function Phase1Unified() {
           {/* Canvas Panel - Center */}
           <div className="lg:sticky lg:top-6 lg:col-span-6 bg-white rounded-xl border border-border p-5 flex flex-col">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="font-heading font-medium text-text">Canvas</h2>
+              <div className="flex items-center gap-3">
+                <h2 className="font-heading font-medium text-text">Canvas</h2>
+                {nodes.length > 0 && (
+                  <button 
+                    onClick={clearAll}
+                    className="flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium text-red-500 hover:bg-red-50 rounded border border-red-100 transition-colors"
+                  >
+                    <X className="w-3 h-3" />
+                    New Render
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-3">
                 <div className="text-[11px] text-text-secondary bg-surface px-2 py-1 rounded">
                   Aspect: <span className="font-medium text-text">{aspectRatio}</span>
@@ -590,6 +624,50 @@ export default function Phase1Unified() {
                         <Loader2 className="w-12 h-12 text-primary animate-spin" />
                         <p className="ml-3 text-text-secondary">Generating render...</p>
                       </div>
+                    ) : compareMode && nodes.some(n => n.type === 'render' && n.status === 'complete') ? (
+                       <div className="relative w-full h-full group">
+                          {/* After Image (Render) */}
+                          <img 
+                            src={nodes.find(n => n.type === 'render' && n.status === 'complete')?.imageUrl || ''} 
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Before Image (Massing) with Clip Path */}
+                          <div 
+                            className="absolute inset-0 overflow-hidden"
+                            style={{ clipPath: `inset(0 ${100 - (typeof window !== 'undefined' ? 50 : 50)}% 0 0)` }}
+                            id="compare-slider-massing"
+                          >
+                            <img 
+                              src={nodes.find(n => n.type === 'massing')?.imageUrl || ''} 
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          {/* Interactive Slider Input */}
+                          <input 
+                            type="range" 
+                            min="0" max="100" defaultValue="50"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-30"
+                            onChange={(e) => {
+                              const slider = document.getElementById('compare-slider-massing');
+                              const handle = document.getElementById('compare-slider-handle');
+                              if (slider) slider.style.clipPath = `inset(0 ${100 - Number(e.target.value)}% 0 0)`;
+                              if (handle) handle.style.left = `${e.target.value}%`;
+                            }}
+                          />
+                          {/* Visual Handle */}
+                          <div 
+                            id="compare-slider-handle"
+                            className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_rgba(0,0,0,0.5)] z-20 pointer-events-none"
+                            style={{ left: '50%' }}
+                          >
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center">
+                              <div className="flex gap-0.5">
+                                <div className="w-0.5 h-3 bg-text-secondary rounded-full" />
+                                <div className="w-0.5 h-3 bg-text-secondary rounded-full" />
+                              </div>
+                            </div>
+                          </div>
+                       </div>
                     ) : (
                       <img
                         src={selectedNode.imageUrl || ''}
@@ -600,16 +678,24 @@ export default function Phase1Unified() {
                     )}
 
                     {selectedNode.type === 'render' && selectedNode.status === 'complete' && selectedNode.imageUrl && (
-                      <button
-                        onClick={() => downloadImage(selectedNode.imageUrl, selectedNode.title)}
-                        className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-white shadow-lg transition-all duration-200 ease-out hover:scale-[1.02] active:scale-95 z-20"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </button>
+                      <div className="absolute top-4 right-4 flex gap-2 z-20">
+                        <button
+                          onClick={() => setCompareMode(!compareMode)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 backdrop-blur shadow-lg transition-all ${compareMode ? 'bg-primary text-white' : 'bg-white/90 hover:bg-white text-text'}`}
+                        >
+                          {compareMode ? 'Exit Compare' : 'Compare'}
+                        </button>
+                        <button
+                          onClick={() => downloadImage(selectedNode.imageUrl, selectedNode.title)}
+                          className="bg-white/90 backdrop-blur px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 hover:bg-white shadow-lg transition-all duration-200 ease-out hover:scale-[1.02] active:scale-95"
+                        >
+                          <Download className="w-4 h-4" />
+                          Download
+                        </button>
+                      </div>
                     )}
 
-                    {cameraPositions.map((pos) => (
+                    {!isGenerating && activeTool === 'perspective' && cameraPositions.map((pos) => (
                       <div
                         key={pos.id}
                         onMouseDown={(e) => handleMouseDown(e, pos.id)}
@@ -629,7 +715,7 @@ export default function Phase1Unified() {
                       </div>
                     ))}
 
-                    {cameraPositions.length === 2 && (
+                    {!isGenerating && activeTool === 'perspective' && cameraPositions.length === 2 && (
                       <svg className="absolute inset-0 w-full h-full pointer-events-none z-0" style={{ overflow: 'visible' }}>
                         <line
                           x1={`${cameraPositions[0].x}%`}

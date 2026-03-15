@@ -53,27 +53,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const result = await signInWithPopup(auth, provider);
             const user = result.user;
 
-            // Sync user to Firestore - Handle failures gracefully for offline/unconfigured environments
-            try {
-                const userRef = doc(db, 'users', user.uid);
-                const userSnap = await getDoc(userRef);
-
-                if (!userSnap.exists()) {
-                    await setDoc(userRef, {
-                        email: user.email,
-                        displayName: user.displayName,
-                        photoURL: user.photoURL,
-                        generationCount: 0,
-                        credits: 100,
-                        createdAt: new Date().toISOString()
-                    });
-                }
-            } catch (firestoreError) {
-                console.warn('Auth Sync Warning: Could not sync user to Firestore, proceeding with Auth session only.', firestoreError);
-            }
+            // Sync user to Firestore - Non-blocking to improve UI responsiveness
+            syncUserParams(user).catch(err => 
+                console.warn('Auth Sync Warning: Background sync failed', err)
+            );
         } catch (error) {
             console.error('Error signing in with Google:', error);
             throw error;
+        }
+    };
+
+    const syncUserParams = async (user: User) => {
+        try {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (!userSnap.exists()) {
+                await setDoc(userRef, {
+                    email: user.email,
+                    displayName: user.displayName,
+                    photoURL: user.photoURL,
+                    generationCount: 0,
+                    credits: 100,
+                    createdAt: new Date().toISOString()
+                });
+            }
+        } catch (firestoreError) {
+            console.error('Firestore Sync Error:', firestoreError);
         }
     };
 
